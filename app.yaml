@@ -1,0 +1,8 @@
+runtime: nodejs14
+
+env_variables:
+  # Add any environment variables required by your app here
+
+handlers:
+  - url: /.*
+    script: auto
