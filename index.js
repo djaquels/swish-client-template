@@ -133,6 +133,9 @@ app.post("/api/callback", (req, res) => {
   }
 });
 
+app.get("/api/callback", (req, res)  => {
+  res.redirect('https://dancevida.se/');
+})
 app.get("/api/info", async (req, res) => {
   try {
     const response = await client.get(
