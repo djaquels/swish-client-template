@@ -12,75 +12,78 @@ app.use(express.json())
 
 
 const agent = new https.Agent({
-    cert: fs.readFileSync('./.ssl/cert.pem', { encoding: 'utf8' }),
-    key: fs.readFileSync('./.ssl/private.key', { encoding: 'utf8' }),
-    //ca: fs.readFileSync('./.ssl/Swish_TLS_RootCA.pem', { encoding: 'utf8' }),
-  });
+  cert: fs.readFileSync('./.ssl/cert.pem', { encoding: 'utf8' }),
+  key: fs.readFileSync('./.ssl/private.key', { encoding: 'utf8' }),
+  //ca: fs.readFileSync('./.ssl/Swish_TLS_RootCA.pem', { encoding: 'utf8' }),
+});
 
 const client = axios.create({
-    httpsAgent: agent
-  });
+  httpsAgent: agent
+});
 
 
-  async function getQrCodeFromToken(token) {
-    const data = {
-      token,
-      size: "300",
-      format: "png",
-      border: "0"
-    };
-  
-    try {
-      const response = await client.post(
-        `https://mpc.getswish.net/qrg-swish/api/v1/commerce`,
-        data,
-        { responseType: 'arraybuffer' }
-      );
-  
-      if (response.status === 200) {
-        return response.data;
-      }
-    } catch (error) {
-      console.error(error);
-    }
+async function getQrCodeFromToken(token) {
+  const data = {
+    token,
+    size: "300",
+    format: "png",
+    border: "0"
   };
 
-function getUUID() {
-    const hexDigits = '0123456789ABCDEF';
-    let key = '';
-  
-    for (let i = 0; i < 32; i++) {
-      key += hexDigits[Math.floor(Math.random() * 16)];
+  try {
+    const response = await client.post(
+      `https://mpc.getswish.net/qrg-swish/api/v1/commerce`,
+      data,
+      { responseType: 'arraybuffer' }
+    );
+
+    if (response.status === 200) {
+      return response.data;
     }
-  
-    return key;
-  }  
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+function getUUID() {
+  const hexDigits = '0123456789ABCDEF';
+  let key = '';
+
+  for (let i = 0; i < 32; i++) {
+    key += hexDigits[Math.floor(Math.random() * 16)];
+  }
+
+  return key;
+}
 // Define routes
 app.get("/api/payment-request", (req, res) => {
+  const reference = req.query.payment_reference
+  const amount_sek = Number(req.query.amount)
+  const concept = req.query.concept
   // Handle payment request logic
   const instructionId = getUUID();
   const callback = 'https://dance-vida-payments.ey.r.appspot.com/api/callback'
   const data = {
-    payeePaymentReference: '0123456788',
+    payeePaymentReference: reference,
     callbackUrl: callback,
     payeeAlias: '1234977948',
     currency: 'SEK',
-    amount: '1',
-    message: 'Kingston USB Flash Drive 8 GB'
+    amount: amount_sek,
+    message: concept
   };
-  
+  console.log(`Creating payment for ${reference} ${amount_sek} ${concept}`)
   client.put(
-  `https://cpc.getswish.net/swish-cpcapi/api/v2/paymentrequests/${instructionId}`,
+    `https://cpc.getswish.net/swish-cpcapi/api/v2/paymentrequests/${instructionId}`,
     data
   ).then((api) => {
-     //console.log('Payment request created')
-     const token = api.headers.paymentrequesttoken 
-     res.send({
-        message: "Payment request created",
-        id: instructionId,
-        url: `swish://paymentrequest?token=${token}&callbackurl=${callback}`
-        //qr: getQrCodeFromToken(token)
-     });
+    //console.log('Payment request created')
+    const token = api.headers.paymentrequesttoken
+    res.send({
+      message: "Payment request created",
+      id: instructionId,
+      url: `swish://paymentrequest?token=${token}&callbackurl=${callback}`
+      //qr: getQrCodeFromToken(token)
+    });
   }).catch(err => {
     console.log(err)
     res.send("Payment Failed")
@@ -88,11 +91,23 @@ app.get("/api/payment-request", (req, res) => {
 });
 
 app.post("/api/callback", (req, res) => {
-  console.log(req.body)
-  res.send("Callback endpoint");
+  try {
+    //console.log(req.body)
+    const message_maping = {
+      "PAID": "Payment completed", "CANCELLED": "Payment was cancelled",
+      "DECLINED": "Payment was declined by customer", "ERROR": "Unexpected error"
+    }
+    const status = req.body.status
+    const payment_reference = req.body.payeePaymentReference
+    const update_row = message_maping[status]
+    console.log(`Payment update received: ${payment_reference} ${update_row}`)
+    res.send("Callback endpoint");
+  } catch (err) {
+    console.log(err)
+  }
 });
 
-app.get("/api/info", async ( req, res) => {
+app.get("/api/info", async (req, res) => {
   try {
     const response = await client.get(
       `https://cpc.getswish.net/swish-cpcapi/api/v1/paymentrequests/D040A107AEEDDEECDE8B0E3A16F9B11F`

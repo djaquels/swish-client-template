@@ -1,4 +1,4 @@
-runtime: nodejs14
+runtime: nodejs16
 
 env_variables:
   # Add any environment variables required by your app here
