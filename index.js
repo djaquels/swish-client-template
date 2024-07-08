@@ -86,7 +86,7 @@ app.get("/api/payment-request", (req, res) => {
   const concept = req.query.concept
   // Handle payment request logic
   const instructionId = getUUID();
-  const callback = 'https://dance-vida-payments.ey.r.appspot.com/api/callback'
+  const callback = 'https://appengine-domain.ey.r.appspot.com/api/callback'
   const data = {
     payeePaymentReference: reference,
     callbackUrl: callback,
@@ -134,7 +134,7 @@ app.post("/api/callback", (req, res) => {
 });
 
 app.get("/api/callback", (req, res)  => {
-  res.redirect('https://dancevida.se/');
+  res.redirect('https://publicdomain.se/');
 })
 app.get("/api/info", async (req, res) => {
   try {
