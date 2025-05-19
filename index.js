@@ -2,8 +2,10 @@ const express = require("express");
 const axios = require("axios");
 const fs = require('fs');
 const https = require('https');
-const { google } = require('googleapis');
+const { google } = require('googleapis');//move to data  layer
+const { SQLitePaymentsRepository } = require('./data/sqliteRepository.js')
 
+// Server configurations
 const app = express();
 const PORT = 8080;
 
@@ -20,8 +22,26 @@ const agent = new https.Agent({
 
 const client = axios.create({
   httpsAgent: agent
-});
+}); // this creates an HTTPS client with the right certs for communication with Swish API
 
+
+// Storage (DB) configurations
+
+const connect = async (type) => {
+	switch(type){
+	 case 'sqlite':
+	  const sqliteRepo = new SQLitePaymentsRepository('./payments.db')
+	  await sqliteRepo.init()
+	  return sqliteRepo
+	 default:
+	  return null
+	}
+}
+
+const db = connect('sqlite')
+/*update to handle desired storage engine (available): pg, gsheet, sqlite(local test) or text (local test)
+for adding a custom engine please read the docs. README.md
+*/
 
 async function _getGoogleSheetClient() {
   const auth = new google.auth.GoogleAuth({
@@ -79,6 +99,7 @@ async function modifySpreadsheet(reference, status) {
     console.log('No matching row found.');
   }
 }
+
 // Define routes
 app.get("/api/payment-request", (req, res) => {
   const reference = req.query.payment_reference
@@ -102,6 +123,7 @@ app.get("/api/payment-request", (req, res) => {
   ).then((api) => {
     //console.log('Payment request created')
     const token = api.headers.paymentrequesttoken
+    db.create(data)
     res.send({
       message: "Payment request created",
       id: instructionId,
@@ -123,10 +145,11 @@ app.post("/api/callback", (req, res) => {
     }
     const status = req.body.status
     const payment_reference = req.body.payeePaymentReference
-    const update_row = message_maping[status]
+    //const update_row = message_maping[status]
     const reference_clean = payment_reference.replace(/'/g, '');
     console.log(`Payment update received: ${reference_clean} ${update_row}`);
-    modifySpreadsheet(reference_clean, update_row)
+    //modifySpreadsheet(reference_clean, update_row)
+    db.update(reference_clean)
     res.send("Callback endpoint");
   } catch (err) {
     console.log(err)
@@ -154,3 +177,4 @@ app.get("/api/info", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
