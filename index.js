@@ -2,12 +2,19 @@ const express = require("express");
 const axios = require("axios");
 const fs = require('fs');
 const https = require('https');
+const path = require('path');
+const dotenv = require('dotenv');
 const { google } = require('googleapis');//move to data  layer
 const { SQLitePaymentsRepository } = require('./data/sqliteRepository.js')
+// dotenv configuraiton
+const env = '.env';
+dotenv.config({ path: path.resolve(__dirname, env) });
 
 // Server configurations
 const app = express();
 const PORT = 8080;
+const swishAPI = process.env.SWISH_API
+const callbackURL = process.env.CALL_BACK_URL
 
 
 app.use(express.json())
@@ -26,11 +33,11 @@ const client = axios.create({
 
 
 // Storage (DB) configurations
-
+let db = null
 const connect = async (type) => {
 	switch(type){
 	 case 'sqlite':
-	  const sqliteRepo = new SQLitePaymentsRepository('./payments.db')
+	  const sqliteRepo = new SQLitePaymentsRepository('./data/db/payments.db')
 	  await sqliteRepo.init()
 	  return sqliteRepo
 	 default:
@@ -38,7 +45,13 @@ const connect = async (type) => {
 	}
 }
 
-const db = connect('sqlite')
+const getDBConnection = async() => {
+  const dbClient = await connect(process.env.STORAGE_ENGINE)
+  if(!db){
+    db = dbClient
+  }
+  return db
+}
 /*update to handle desired storage engine (available): pg, gsheet, sqlite(local test) or text (local test)
 for adding a custom engine please read the docs. README.md
 */
@@ -101,13 +114,13 @@ async function modifySpreadsheet(reference, status) {
 }
 
 // Define routes
-app.get("/api/payment-request", (req, res) => {
-  const reference = req.query.payment_reference
+app.get("/api/payment-request", async (req, res) => {
+  const reference = req.query.payment_reference?.replace(/[^a-zA-ZåÅäÄöÖ0-9\-]/g, '-')
   const amount_sek = Number(req.query.amount)
   const concept = req.query.concept
   // Handle payment request logic
   const instructionId = getUUID();
-  const callback = 'https://appengine-domain.ey.r.appspot.com/api/callback'
+  const callback = `${callbackURL}/api/callback`
   const data = {
     payeePaymentReference: reference,
     callbackUrl: callback,
@@ -118,25 +131,35 @@ app.get("/api/payment-request", (req, res) => {
   };
   console.log(`Creating payment for ${reference} ${amount_sek} ${concept}`)
   client.put(
-    `https://cpc.getswish.net/swish-cpcapi/api/v2/paymentrequests/${instructionId}`,
+    `${swishAPI}/swish-cpcapi/api/v2/paymentrequests/${instructionId}`,
     data
-  ).then((api) => {
+  ).then(async (api) => {
     //console.log('Payment request created')
-    const token = api.headers.paymentrequesttoken
-    db.create(data)
-    res.send({
-      message: "Payment request created",
+    try {
+      const token = api.headers.paymentrequesttoken
+      const dbInstance = await getDBConnection()
+      await dbInstance?.create(data)
+      res.send({
+      message: 'Payment request created',
       id: instructionId,
       url: `swish://paymentrequest?token=${token}&callbackurl=${callback}`
       //qr: getQrCodeFromToken(token)
-    });
+      });
+    }catch(err){
+      res.send({
+        message: 'Payment request could not be created.',
+        id: instructionId,
+        url: 'swish://error',
+        error: err
+      })
+    }
   }).catch(err => {
     console.log(err)
     res.send("Payment Failed")
   })
 });
 
-app.post("/api/callback", (req, res) => {
+app.post("/api/callback", async (req, res) => {
   try {
     //console.log(req.body)
     const message_maping = {
@@ -145,12 +168,12 @@ app.post("/api/callback", (req, res) => {
     }
     const status = req.body.status
     const payment_reference = req.body.payeePaymentReference
-    //const update_row = message_maping[status]
+    const update_row_status = message_maping[status]
     const reference_clean = payment_reference.replace(/'/g, '');
-    console.log(`Payment update received: ${reference_clean} ${update_row}`);
+    console.log(`Payment update received: ${reference_clean} ${update_row_status}`);
     //modifySpreadsheet(reference_clean, update_row)
-    db.update(reference_clean)
-    res.send("Callback endpoint");
+    db.update(reference_clean, update_row_status)
+    res.send("Payment processed");
   } catch (err) {
     console.log(err)
   }
@@ -159,10 +182,11 @@ app.post("/api/callback", (req, res) => {
 app.get("/api/callback", (req, res)  => {
   res.redirect('https://publicdomain.se/');
 })
+
 app.get("/api/info", async (req, res) => {
   try {
     const response = await client.get(
-      `https://cpc.getswish.net/swish-cpcapi/api/v1/paymentrequests/D040A107AEEDDEECDE8B0E3A16F9B11F`
+      `${swishAPI}/swish-cpcapi/api/v1/paymentrequests/D040A107AEEDDEECDE8B0E3A16F9B11F`
     );
 
     if (response.status === 200) {
@@ -174,7 +198,7 @@ app.get("/api/info", async (req, res) => {
 })
 
 // Start the server
-app.listen(PORT, () => {
+app.listen(PORT,() => {
   console.log(`Server is running on port ${PORT}`);
 });
 

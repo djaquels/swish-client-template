@@ -15,13 +15,17 @@ class SQLitePaymentsRepository extends PaymentRepository {
   }
 
   async create(payment){
+   const paymentData = payment
+   paymentData.status = 'Waiting for payment'
    await this.db.run(`INSERT INTO payments(payeePaymentReference, data) VALUES (?,?)`,
 	   [payment.payeePaymentReference, JSON.stringify(payment)])
    return payment
   }
 
   async update(paymentReference, paymentUpdate){
-     await this.db.run('UPDATE payments SET data=? WHERE payeePaymentReference=?', [JSON.stringify(paymentUpdate), paymentReference])
+     const paymentData = await this.db.get('SELECT data from payments WHERE payeePaymentReference = ?', [paymentReference])
+     paymentData.status = paymentUpdate
+     await this.db.run('UPDATE payments SET data=? WHERE payeePaymentReference=?', [JSON.stringify(paymentData), paymentReference])
      return paymentUpdate
   }
 
@@ -31,6 +35,7 @@ class SQLitePaymentsRepository extends PaymentRepository {
 
   async getPayment(paymentReference){
    const row = await this.db.get('SELECT data from payments WHERE payeePaymentReference = ?', [paymentReference])
+   return row
   }
 
   async list(){

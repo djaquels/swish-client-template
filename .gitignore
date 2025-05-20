@@ -4,3 +4,7 @@ node_modules
 /.ssl
 ssl
 .ssl
+data/**
+data/db/payments.db
+./data/db/payments.db
+/data/db/payments.db
