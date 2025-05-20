@@ -2,6 +2,10 @@ runtime: nodejs16
 
 env_variables:
   # Add any environment variables required by your app here
+  SWISH_API: "https://cpc.getswish.net"
+  STORAGE_ENGINE: "postgres"
+  CALL_BACK_URL: "https://appengine-domain.ey.r.appspot.com"
+
 
 handlers:
   - url: /.*
