@@ -95,7 +95,7 @@ app.get("/api/payment-request", async (req, res) => {
     try {
       const token = api.headers.paymentrequesttoken
       const dbInstance = await getDBConnection()
-      await dbInstance?.create(data)
+      await dbInstance?.create(data, instructionId)
       res.send({
       message: 'Payment request created',
       id: instructionId,

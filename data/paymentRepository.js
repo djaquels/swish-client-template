@@ -1,5 +1,5 @@
 class PaymentRepository {
-	async create(payment){
+	async create(payment, instructionId){
 		throw new Error("Method not callable from interface.")
 	}
 

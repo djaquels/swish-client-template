@@ -11,12 +11,13 @@ class SQLitePaymentsRepository extends PaymentRepository {
 
   async init(){
    this.db = await open({filename: this.dbPath, driver: sqlite3.Database})
-   await this.db.run(`CREATE TABLE IF NOT EXISTS payments(reference TEXT PRIMARY KEY, data TEXT)`)	  
+   await this.db.run(`CREATE TABLE IF NOT EXISTS payments( payeePaymentReference TEXT PRIMARY KEY, data TEXT)`)	  
   }
 
-  async create(payment){
+  async create(payment, instructionId){
    const paymentData = payment
    paymentData.status = 'Waiting for payment'
+   paymentData.instructionId = instructionId
    await this.db.run(`INSERT INTO payments(payeePaymentReference, data) VALUES (?,?)`,
 	   [payment.payeePaymentReference, JSON.stringify(payment)])
    return payment
