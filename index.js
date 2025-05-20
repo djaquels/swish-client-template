@@ -4,7 +4,8 @@ const fs = require('fs');
 const https = require('https');
 const path = require('path');
 const dotenv = require('dotenv');
-const { SQLitePaymentsRepository } = require('./data/sqliteRepository.js')
+const { SQLitePaymentsRepository } = require('./data/sqliteRepository.js');
+const { GSheetsPaymentsRepository } = require("./data/gsheets.js");
 // dotenv configuraiton
 const env = '.env';
 dotenv.config({ path: path.resolve(__dirname, env) });
@@ -39,6 +40,9 @@ const connect = async (type) => {
 	  const sqliteRepo = new SQLitePaymentsRepository('./data/db/payments.db')
 	  await sqliteRepo.init()
 	  return sqliteRepo
+   case 'gsheets':
+    const gsheetsRepo = new GSheetsPaymentsRepository()
+    await gsheetsRepo.init()
 	 default:
 	  return null
 	}
