@@ -8,3 +8,4 @@ data/**
 data/db/payments.db
 ./data/db/payments.db
 /data/db/payments.db
+data/db/payments.db
