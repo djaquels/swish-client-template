@@ -25,3 +25,19 @@ npm start
 The project includes an app.yaml file that can be use to deploy to an Google App Engine service, there you can configure teh following environment variables:
 - Swish Endpoint
 - Storage Engine (SQLite, PostgreSQL, GSheet)
+
+### Build Services
+
+Run the ./build.sh script for terraform to create a new GCP project with an App Engine instance, a SA for deployments.
+
+### Deploy First time
+
+For create a first version you can run the ./deploy.sh script, this will create keys for the previously created SA and deploy the service
+to an App Engine service.
+
+### Update 
+
+For create new App Engine versions after changes made simply run 
+```
+gcloud app deploy app.yaml
+```
